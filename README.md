@@ -40,7 +40,8 @@ def get_product_by_id(request, id_yo):
     return response
 
 server = Server()  # default port is 4321
-server.start()```
+server.start()
+```
 
 ## License
 
@@ -49,6 +50,5 @@ MIT License
 ### Do-maybe-list
 - Testing -.-
 - Support class based Resource decorators with get, post, delete etc methods.
-- Consider wrapping Request object parameter inside function as a local variable rather than always the first argument in a handler.
 
 **Results may vary depending on how much you know and love regular expressions.*

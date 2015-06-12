@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='yahs',
@@ -13,6 +13,7 @@ setup(
     author_email='tsullivan@timatooth.com',
     download_url='https://github.com/timatooth/yahs/tarball/1.0',
     description='Super basic HTTP server for creating and testing REST APIs',
+    test_suite='tests',
     classifiers= [
         'Programming Language :: Python'
         'License :: OSI Approved :: MIT License',

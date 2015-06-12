@@ -1,6 +1,11 @@
 __author__ = 'Tim Sullivan'
+
 import unittest
+import logging
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+
 from yahs import Server
+
 
 class TestYAHS(unittest.TestCase):
     @classmethod

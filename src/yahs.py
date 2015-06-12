@@ -10,7 +10,6 @@ import sys
 import os
 import signal
 import socket
-import thread
 import threading
 import urlparse
 import ssl
@@ -242,6 +241,65 @@ class HttpWorker(threading.Thread):
         """
         logging.info("{} {} Response: {}".format(request.method, request.uri, response.status_code))
 
+class ListenerThread(threading.Thread):
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs=None):
+        """
+        Create the server socket listener thread.
+        args is required with (hostname, port, https_enabled)
+        """
+        # call 'super' constructor to init thread
+        super(ListenerThread, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
+
+        self.hostname = args[0]
+        self.port = args[1]
+        self.secure = args[2]
+        self.socket = None
+
+        self.setup_listening()
+
+    def setup_listening(self):
+        logging.info("Starting ListenerThread on {0}:{1}".format(self.hostname, self.port))
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((self.hostname, self.port))
+        server_socket.listen(5)
+        self.socket = server_socket
+
+        if self.secure:
+            self.wrap_ssl()
+
+    def run(self):
+        logging.debug("Entering http server loop")
+        while True:
+            try:
+                (client_socket, address) = self.socket.accept()
+                logging.debug("Accepted connection from %s", address)
+                # create a HttpWorker thread, passing in the client socket
+                http_thread = HttpWorker(args=(client_socket, address))
+                http_thread.start()
+            except ssl.SSLEOFError:
+                # find this happening when browser issues warning and ends tcp stream
+                logging.debug("Reached EOF when SSL connection was being accepted")
+                continue
+            except ssl.SSLError, err:
+                logging.warning("Got a {} error: {}".format(err['library'], err['reason']))
+                continue
+
+    def wrap_ssl(self):
+        # Wrap socket in SSL. TODO look into using ssl.SSLContexts for better support of browsers
+        try:
+            logging.debug("Attempting to load private key at %s", self.key_file)
+            logging.debug("Attempting to load certificates at %s", self.certificate_file)
+            self.socket = ssl.wrap_socket(self.socket,
+                                          server_side=True,
+                                          certfile=self.certificate_file,
+                                          keyfile=self.key_file)
+            logging.debug("Certificates and server key loaded")
+        except IOError as err:
+            logging.warning("Could not find SSL certificate or private key file. Not starting ssl")
+            logging.warning(err)
+            self.socket.close()
+            return
 
 class Server:
     """Server listens for secure and non-secure sockets.
@@ -286,91 +344,39 @@ class Server:
         self.key_file = os.path.join(os.path.dirname(__file__), "server.key")
         self.certificate_file = os.path.join(os.path.dirname(__file__), "certificate-chain.crt")
 
-        # Set up the server socket listening:
-        logging.info("Starting server listening on {0}:{1}".format(self.hostname, self.base_port))
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.hostname, self.base_port))
-        server_socket.listen(5)
-
-        # hold reference to this when shutting down
-        self.server_unsecure_socket = server_socket
-
         # Bind the signal handler: SIGINT is send to the process when CTRL-C is pressed
         signal.signal(signal.SIGINT, self.handle_shutdown)
+
+        self.listener = ListenerThread(args=('localhost', self.base_port, False))
+        self.listener.daemon = True
+
+    def handle_shutdown(self, signal_unused, frame_unused):
+        """If the server receives a signal (e.g. Ctrl-C/Ctrl-Break), terminate gracefully
+        """
+        logging.info("SIGINT Signal received; exiting gracefully...")
+        sys.exit(0)
 
     def start(self):
         """Start the server mainloop.
 
         By now the server should have been inited and ready to enter the run loop.
         """
-        logging.debug("Entering http server main loop")
+
+        self.listener.start()
 
         if self.secure:
-            self._start_secure()
+            secure_listener = ListenerThread(args=('localhost', self.base_port, True))
+            secure_listener.daemon = True
+            secure_listener.start()
 
-        while True:
-            (client_socket, address) = self.server_unsecure_socket.accept()
-            logging.debug("Accepted unsecure connection from %s", address)
-            # create a HttpWorker thread, passing in the client socket
-            httpthread = HttpWorker(args=(client_socket, address))
-            httpthread.start()
+        return self
 
-    def _start_secure(self):
-        logging.info("Starting *SECURE* server listening on {0}:{1}".format(self.hostname, self.base_port + 1))
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.hostname, self.base_port + 1))
-        server_socket.listen(5)
-
-        # Wrap socket in SSL. TODO look into using ssl.SSLContexts for better support of browsers
-        try:
-            logging.debug("Attempting to load private key at %s", self.key_file)
-            logging.debug("Attempting to load certificates at %s", self.certificate_file)
-            self.server_secure_socket = ssl.wrap_socket(server_socket,
-                                                        server_side=True,
-                                                        certfile=self.certificate_file,
-                                                        keyfile=self.key_file)
-            logging.debug("Certificates and server key loaded")
-        except IOError as err:
-            logging.warning("Could not find SSL certificate or private key file. Not starting ssl")
-            logging.warning(err)
-            server_socket.close()
-            return
-
-        # Listening on another thread since ordinary socket will block main thread
-        thread.start_new_thread(self._secure_serve, ())
-
-    def _secure_serve(self):
-        """Secure sever accept loop. This method runs on it's own thread
+    def wait(self):
+        """Helper to block main thread to keep process running.
         """
-        logging.debug("Entering HTTPS server main loop")
-        while True:
-            try:
-                (client_socket, address) = self.server_secure_socket.accept()
-                logging.debug("Accepted SSL connection from %s", address)
-                # create a HttpWorker thread, passing in the client socket
-                httpthread = HttpWorker(args=(client_socket, address))
-                httpthread.start()
-            except ssl.SSLEOFError:
-                # find this happening when browser issues warning and ends tcp stream
-                logging.debug("Reached EOF when SSL connection was being accepted")
-                continue
-            except ssl.SSLError, err:
-                logging.warning("Got a {} error: {}".format(err['library'], err['reason']))
-                continue
-
-    def handle_shutdown(self, signal_unused, frame_unused):
-        """If the server receives a signal (e.g. Ctrl-C/Ctrl-Break), terminate gracefully
-        """
-        logging.info("SIGINT Signal received; exiting gracefully...")
-        try:
-            self.server_unsecure_socket.close()
-            self.server_secure_socket.close()
-        except (AttributeError, IOError):
-            logging.debug("One of the server sockets wasn't loaded")
-            pass
-        sys.exit(0)
+        logging.info('Waiting for connections...')
+        while self.listener.is_alive:
+            self.listener.join(1)
 
 @Server.handle('GET', r'^/$')
 @Server.handle('GET', r'^/yahs/api/?$')
@@ -443,4 +449,4 @@ if __name__ == "__main__":
     else:
         server = Server()  # defaults to http://localhost:4321, https://localhost:4322
 
-    server.start()  # blocks
+    server.start().wait()

@@ -6,13 +6,14 @@ setup(
     # packages=[''],
     package_dir={'': 'src'},
     py_modules=['yahs'],
-    keywords = ["http", "rest", "xml"],
+    keywords = ["http", "rest", "json", "decorator"],
     url='https://github.com/timatooth/yahs',
     license='MIT',
     author='Tim Sullivan',
     author_email='tsullivan@timatooth.com',
     download_url='https://github.com/timatooth/yahs/tarball/1.0',
     description='Super basic HTTP server for creating and testing REST APIs',
+    tests_require=['requests'],
     test_suite='tests',
     classifiers= [
         'Programming Language :: Python'

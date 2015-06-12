@@ -1,5 +1,7 @@
 # YaHS Yet another HTTP Server
 
+[![Build Status](https://travis-ci.org/timatooth/yahs.svg?branch=master)](https://travis-ci.org/timatooth/yahs)
+
 HTTP server in a single Python file. Offers a Python decorator to register
 functions for URL resources using regular expressions we all know and love.*
 Handy for trying out your future REST api ideas.

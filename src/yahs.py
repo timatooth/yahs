@@ -255,6 +255,18 @@ class ListenerThread(threading.Thread):
         self.secure = args[2]
         self.socket = None
 
+        if kwargs:
+            if 'keyfile' in kwargs:
+                self.key_file = kwargs['keyfile']
+            else: self.key_file = None
+
+            if 'certfile' in kwargs:
+                self.certificate_file = kwargs['certfile']
+            else: self.certificate_file = None
+        else:
+            self.key_file = None
+            self.certificate_file = None
+
         self.setup_listening()
 
     def setup_listening(self):
@@ -333,7 +345,7 @@ class Server:
 
         return request_handler_decorator
 
-    def __init__(self, hostname='localhost', port=4321, secure=False):
+    def __init__(self, hostname='localhost', port=4321, secure=False, keyfile=None, certfile=None):
         """Create a live running http server instance to go
 
         It will start listening on the specified port but won't run yet until start() is called.
@@ -341,8 +353,8 @@ class Server:
         self.base_port = port
         self.hostname = hostname
         self.secure = secure
-        self.key_file = os.path.join(os.path.dirname(__file__), "server.key")
-        self.certificate_file = os.path.join(os.path.dirname(__file__), "certificate-chain.crt")
+        self.key_file = keyfile
+        self.certificate_file = certfile
 
         # Bind the signal handler: SIGINT is send to the process when CTRL-C is pressed
         signal.signal(signal.SIGINT, self.handle_shutdown)
@@ -365,7 +377,8 @@ class Server:
         self.listener.start()
 
         if self.secure:
-            secure_listener = ListenerThread(args=('localhost', self.base_port, True))
+            key_dict = {'keyfile': self.key_file, 'certfile': self.certificate_file}
+            secure_listener = ListenerThread(args=('localhost', self.base_port + 1, True), kwargs=key_dict)
             secure_listener.daemon = True
             secure_listener.start()
 

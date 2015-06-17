@@ -8,6 +8,7 @@ import requests
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
+import os
 from yahs import Server, Response
 
 products = ['apple', 'cake', 'tree', 'fish']
@@ -17,7 +18,9 @@ class TestYAHS(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         print "Starting up YAHS server for testing..."
-        server = Server()
+        keyfile = os.path.join(os.path.dirname(__file__), "test-key.pem")
+        certfile = os.path.join(os.path.dirname(__file__), "test-cert.crt")
+        server = Server(secure=True, keyfile=keyfile, certfile=certfile)
         server.start()
 
     def test_get_products(self):
@@ -51,6 +54,10 @@ class TestYAHS(unittest.TestCase):
 
         res = requests.post('http://localhost:4321/media/textjunk', data)
         self.assertEqual(204, res.status_code, "result after post media file should be 204 no content")
+
+    def test_https_get(self):
+        res = requests.get("https://localhost:4322/products/", verify=False)
+        self.assertEqual(200, res.status_code, "Expects status code 200")
 
 @Server.handle('GET', r'^/products/$')
 def get_products(request):

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='yahs',
-    version='1.0',
+    version='1.1',
     # packages=[''],
     package_dir={'': 'src'},
     py_modules=['yahs'],
@@ -16,27 +16,15 @@ setup(
     tests_require=['requests'],
     test_suite='tests',
     classifiers= [
-        'Programming Language :: Python'
+        'Programming Language :: Python',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Development Status :: 2 - Pre-Alpha',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
         'Topic :: Internet :: WWW/HTTP :: HTTP Servers',
-        'Topic :: Internet :: WWW/HTTP :: Dynamic Content :: CGI Tools/Libraries'
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content :: CGI Tools/Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    long_description="""
-Yet another HTTP Server (YaHS)
-------------------------------
-
-Provides simple decorator API to easily register a Python function as a REST url
-handler.
-
-E.g
-@Server.handle('GET', '/food')
-def get_food(request):
-    return "Tasty food"
-
-"""
+    long_description=open('README.rst').read()
 )

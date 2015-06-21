@@ -15,6 +15,7 @@ setup(
     description='Super basic HTTP server for creating and testing REST APIs',
     tests_require=['requests'],
     test_suite='tests',
+    use_2to3 = True,
     classifiers= [
         'Programming Language :: Python',
         'License :: OSI Approved :: MIT License',

@@ -17,7 +17,7 @@ media = {}
 class TestYAHS(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        print "Starting up YAHS server for testing..."
+        print ("Starting up YAHS server for testing...")
         keyfile = os.path.join(os.path.dirname(__file__), "test-key.pem")
         certfile = os.path.join(os.path.dirname(__file__), "test-cert.crt")
         server = Server(secure=True, keyfile=keyfile, certfile=certfile)
@@ -38,7 +38,7 @@ class TestYAHS(unittest.TestCase):
     def test_add_media(self):
         size = 4000
         data = ""
-        for b in xrange(size):
+        for b in range(size):
             data += chr(random.randint(32, 127))
 
         res = requests.post('http://localhost:4321/media/textjunk', data)
@@ -47,10 +47,9 @@ class TestYAHS(unittest.TestCase):
     def test_add_large_media(self):
         size = 1024 * 100
         data = ""
-        print "spinning random..."
-        for b in xrange(size):
+
+        for b in range(size):
             data += chr(random.randint(32, 127))
-        print "spun random"
 
         res = requests.post('http://localhost:4321/media/textjunk', data)
         self.assertEqual(204, res.status_code, "result after post media file should be 204 no content")
@@ -85,3 +84,6 @@ def add_media(request, name):
     response.headers['Content-Type'] = 'text/plain'
     response.body = media[name]
     return response
+
+if __name__ == '__main__':
+    unittest.main()

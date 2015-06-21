@@ -58,18 +58,20 @@ class Response:
             'Server': 'YaHS (Yet another HTTP Server) v1.0',
             'Content-Type': "text/html",
         }
-        self.body = ""
+        self.body = b''
 
     def send(self, client_socket):
         """Send the Response to the client socket provided.
 
         This method is called *Internally* and should not be used directly.
         """
-        client_socket.send("HTTP/1.1 {0} {1}\r\n".format(self.status_code, self.status_message))
+        client_socket.send("HTTP/1.1 {0} {1}\r\n".format(self.status_code, self.status_message).encode('utf-8'))
         self.headers['Content-Length'] = str(len(self.body))
         for header in self.headers:
-            client_socket.send(header + ": " + self.headers[header] + "\r\n")
-        client_socket.send("\r\n")
+            client_socket.send((header + ": " + self.headers[header] + "\r\n").encode('utf-8'))
+        client_socket.send(b'\r\n')
+        if type(self.body) is str:
+            self.body = self.body.encode('utf-8')
         client_socket.send(self.body)
 
 
@@ -113,7 +115,7 @@ class HttpWorker(threading.Thread):
 
         :return: a Request object
         """
-        request = ""
+        request = b''
         data = ""  # if we had PUT or POST data build it here
         post_flag = False
         http_request = None
@@ -126,31 +128,31 @@ class HttpWorker(threading.Thread):
 
             # if the request has just started
             if not post_flag:
-                for line in new_data.split("\n"):
-                    request += line + "\n"  # add linebreak back helps
+                for line in new_data.split(b'\n'):
+                    request += line + b'\n'  # add linebreak back helps
                     got_bytes += len(line) + 1
 
                     if len(line) <= 1:  # assumed to reach /r/n/r/n
-                        request_lines = request.split('\r\n')
+                        request_lines = request.split(b'\r\n')
                         request_speci = request_lines[0].split()  # eg ['GET', '/', 'HTTP/1.1']
 
                         request_headers = {}
                         for header in request_lines[1:]:
                             try:
-                                (var, val) = header.split(': ')  # split header key/value pairs into 2 components
-                                request_headers[var] = val
+                                (var, val) = header.split(b': ')  # split header key/value pairs into 2 components
+                                request_headers[var.decode()] = val.decode()
                             except ValueError:
                                 pass
 
                         # process querystring in request if any eg GET /?status=new&cake=lie
                         # resulting uri variable should then have the querystring chopped off.
                         # true keeps any blank values e.g /?egg
-                        get_query = urlparse.parse_qs(request_speci[1].replace("/?", ''), True)
+                        get_query = urlparse.parse_qs(request_speci[1].decode().replace('/?', ''), True)
                         # chop off querystring, e.g: /?status=new&cake=lie becomes /
-                        uri = request_speci[1].split("?")[0]
+                        uri = request_speci[1].split(b'?')[0]
 
                         # create an instance of a Request object
-                        http_request = Request(request_speci[0], uri, request_headers, get_query,
+                        http_request = Request(request_speci[0].decode(), uri.decode(), request_headers, get_query,
                                                address=self.client_address)
 
                         if request_speci[0] == 'POST' or request_speci[0] == 'PUT':
@@ -293,7 +295,7 @@ class ListenerThread(threading.Thread):
                 # find this happening when browser issues warning and ends tcp stream
                 logging.debug("Reached EOF when SSL connection was being accepted")
                 continue
-            except ssl.SSLError, err:
+            except ssl.SSLError as err:
                 logging.warning("Got a {} error: {}".format(err['library'], err['reason']))
                 continue
 

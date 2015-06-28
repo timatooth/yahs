@@ -25,6 +25,7 @@ class Request:
     Requests are created by the running HttpWorker threads and have
     a uri. 'handlers' register for request url patterns they're interested in.
     """
+
     def __init__(self, method, uri, headers, get_query, address="127.0.0.1"):
         self.method = method  # e.g GET, PUT, HEAD
         self.uri = uri  # e.g /index.html
@@ -57,6 +58,7 @@ class Response:
         self.headers = {
             'Server': 'YaHS (Yet another HTTP Server) v1.0',
             'Content-Type': "text/html",
+            'Access-Control-Allow-Origin': '*'  # ruthless
         }
         self.body = b''
 
@@ -243,6 +245,7 @@ class HttpWorker(threading.Thread):
         """
         logging.info("{} {} Response: {}".format(request.method, request.uri, response.status_code))
 
+
 class ListenerThread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None):
         """
@@ -260,11 +263,13 @@ class ListenerThread(threading.Thread):
         if kwargs:
             if 'keyfile' in kwargs:
                 self.key_file = kwargs['keyfile']
-            else: self.key_file = None
+            else:
+                self.key_file = None
 
             if 'certfile' in kwargs:
                 self.certificate_file = kwargs['certfile']
-            else: self.certificate_file = None
+            else:
+                self.certificate_file = None
         else:
             self.key_file = None
             self.certificate_file = None
@@ -315,6 +320,7 @@ class ListenerThread(threading.Thread):
             self.socket.close()
             return
 
+
 class Server:
     """Server listens for secure and non-secure sockets.
 
@@ -333,6 +339,7 @@ class Server:
         Takes a regex string to compile and register for events
 
         """
+
         def request_handler_decorator(func):
             # build regular expression
             uri_expression = re.compile(uri)
@@ -393,6 +400,7 @@ class Server:
         while self.listener.is_alive:
             self.listener.join(1)
 
+
 @Server.handle('GET', r'^/$')
 @Server.handle('GET', r'^/yahs/api/?$')
 def api_index(request):
@@ -420,6 +428,44 @@ def api_index(request):
 
     response.body = body
     return response
+
+
+@Server.handle('GET', '^/apidocs/?$')
+def api_docs(request):
+    body = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YaHS Live API Docs</title>
+    <style type="text/css">
+    body {font-family: sans-serif; }
+    .urlpattern { border: #ddd 1px solid; border-radius: 4px; box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.1); margin-top: 1.5em;}
+    .urlpattern header {color: #FFF; background-color: #1F5C99; height: 2em}
+    .urlpattern div {padding: 1em; }
+    .method-type { background-color: #143D66; font-weight: bold; padding: 0.4em; margin: 0.2em}
+
+    </style>
+    <body>
+    <h2>YaHS Live API Docs</h2>
+    """
+    for method in Server.handlers:
+        for urlpattern in Server.handlers[method]:
+            func = Server.handlers[method][urlpattern]
+            module = inspect.getmodule(func)
+            # var_names = func.func_code.co_varnames[:func.func_code.co_argcount]  # python 2.7.x
+            var_names = func.__code__.co_varnames[:func.__code__.co_argcount]  # 3.4.x
+
+            body += "<section class='urlpattern'>"
+            body += "<header>"
+            body += "<span class='method-type'>{}</span>".format(method)
+            body += "<code>{}</code>".format(urlpattern.pattern)
+            body += "</header>"
+            body += "<div>{}</div>".format(func.__doc__)
+            body += "</section>"
+    body += "</body></html>"
+    return body
 
 
 @Server.handle("GET", r'^/yahs/reload/?$')

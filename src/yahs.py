@@ -5,6 +5,8 @@
 Provides simple decorator API to quickly create and test RESTful APIs
 """
 __author__ = 'Tim Sullivan'
+__version__ = '1.1'
+__license__ = 'MIT'
 
 import sys
 import os
@@ -118,7 +120,7 @@ class HttpWorker(threading.Thread):
         :return: a Request object
         """
         request = b''
-        data = ""  # if we had PUT or POST data build it here
+        data = b''  # if we had PUT or POST data build it here
         post_flag = False
         http_request = None
 
@@ -136,7 +138,7 @@ class HttpWorker(threading.Thread):
 
                     if len(line) <= 1:  # assumed to reach /r/n/r/n
                         request_lines = request.split(b'\r\n')
-                        request_speci = request_lines[0].split()  # eg ['GET', '/', 'HTTP/1.1']
+                        request_speci = request_lines[0].decode().split()  # eg ['GET', '/', 'HTTP/1.1']
 
                         request_headers = {}
                         for header in request_lines[1:]:
@@ -149,12 +151,12 @@ class HttpWorker(threading.Thread):
                         # process querystring in request if any eg GET /?status=new&cake=lie
                         # resulting uri variable should then have the querystring chopped off.
                         # true keeps any blank values e.g /?egg
-                        get_query = urlparse.parse_qs(request_speci[1].decode().replace('/?', ''), True)
+                        get_query = urlparse.parse_qs(request_speci[1].replace('/?', ''), True)
                         # chop off querystring, e.g: /?status=new&cake=lie becomes /
-                        uri = request_speci[1].split(b'?')[0]
+                        uri = request_speci[1].split('?')[0]
 
                         # create an instance of a Request object
-                        http_request = Request(request_speci[0].decode(), uri.decode(), request_headers, get_query,
+                        http_request = Request(request_speci[0], uri, request_headers, get_query,
                                                address=self.client_address)
 
                         if request_speci[0] == 'POST' or request_speci[0] == 'PUT':

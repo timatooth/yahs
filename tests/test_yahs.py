@@ -67,7 +67,7 @@ def get_products(request):
 
 @Server.handle('POST', r'^/products/$')
 def get_products(request):
-    products.append(request.body)
+    products.append(request.body.decode())
 
     response = Response()
     response.headers['Content-Type'] = 'application/json'

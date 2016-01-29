@@ -13,12 +13,15 @@ import os
 import signal
 import socket
 import threading
-import urlparse
 import ssl
 import logging
 import re
 import collections
 import inspect
+if sys.version_info >= (3,0):
+    from urllib.parse import parse_qs
+else:
+    from urlparse import parse_qs
 
 
 class Request:
@@ -151,7 +154,7 @@ class HttpWorker(threading.Thread):
                         # process querystring in request if any eg GET /?status=new&cake=lie
                         # resulting uri variable should then have the querystring chopped off.
                         # true keeps any blank values e.g /?egg
-                        get_query = urlparse.parse_qs(request_speci[1].replace('/?', ''), True)
+                        get_query = parse_qs(request_speci[1].replace('/?', ''), True)
                         # chop off querystring, e.g: /?status=new&cake=lie becomes /
                         uri = request_speci[1].split('?')[0]
 
@@ -370,7 +373,7 @@ class Server:
         # Bind the signal handler: SIGINT is send to the process when CTRL-C is pressed
         signal.signal(signal.SIGINT, self.handle_shutdown)
 
-        self.listener = ListenerThread(args=('localhost', self.base_port, False))
+        self.listener = ListenerThread(args=(self.hostname, self.base_port, False))
         self.listener.daemon = True
 
     def handle_shutdown(self, signal_unused, frame_unused):
@@ -389,7 +392,7 @@ class Server:
 
         if self.secure:
             key_dict = {'keyfile': self.key_file, 'certfile': self.certificate_file}
-            secure_listener = ListenerThread(args=('localhost', self.base_port + 1, True), kwargs=key_dict)
+            secure_listener = ListenerThread(args=(self.hostname, self.base_port + 1, True), kwargs=key_dict)
             secure_listener.daemon = True
             secure_listener.start()
 
